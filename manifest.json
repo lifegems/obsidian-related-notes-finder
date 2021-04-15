@@ -1,10 +1,10 @@
 {
-	"id": "obsidian-plus",
-	"name": "Obsidian+",
-	"version": "1.0.1",
+	"id": "obsidian-related-notes-finder",
+	"name": "Related Notes Finder",
+	"version": "1.0.2",
 	"minAppVersion": "0.9.12",
-	"description": "An Obsidian plugin that adds extra features for note links, statistics, and randomizers",
+	"description": "An Obsidian plugin that adds extra features for finding related notes.",
 	"author": "Obsidian",
-	"authorUrl": "https://github.com/lifegems/obsidian-plus",
+	"authorUrl": "https://github.com/lifegems/obsidian-related-notes-finder",
 	"isDesktopOnly": false
 }

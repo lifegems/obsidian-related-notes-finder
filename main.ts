@@ -4,9 +4,6 @@ interface MyPluginSettings {
 	filterWords: string;
 	dailies: string;
 	minLetters: number;
-	showFilePath: boolean;
-	showRandom: boolean;
-	showReadingTime: boolean;
 	wpm: number;
 }
 
@@ -14,9 +11,6 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	filterWords: 'the,and,but,not,then,they,will,not,your,from,them,was,with,what,who,why,where,this,over,than',
 	dailies: '',
 	minLetters: 3,
-	showFilePath: true,
-	showRandom: true,
-	showReadingTime: true,
 	wpm: 200,
 }
 
@@ -24,49 +18,9 @@ export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 
 	async onload() {
-		console.log('loading Obsidian+');
+		console.log('loading Related Notes plugin');
 
 		await this.loadSettings();
-
-		const FILE_PATH_STATUS = this.addStatusBarItem();
-		const READING_TIME_STATUS = this.addStatusBarItem();
-
-		const updateFilePath = () => {
-			let activeFile = this.app.workspace.getActiveFile();
-
-			if (this.settings.showFilePath) {
-				FILE_PATH_STATUS.setText(activeFile.path);
-			} else {
-				FILE_PATH_STATUS.setText('');
-			}
-		}
-
-		const updateReadingTime = async () => {
-			let activeFile = this.app.workspace.getActiveFile();
-			let fileData = await this.app.vault.read(activeFile);
-
-			let result = "0m";
-			let textLength = fileData ? fileData.split(" ").length : 0;
-			if (textLength > 0) {
-				let value = Math.ceil(textLength / this.settings.wpm);
-				result = `${value}m`;
-			}
-
-			if (this.settings.showReadingTime) {
-				READING_TIME_STATUS.setText(result);
-			} else {
-				READING_TIME_STATUS.setText('');
-			}
-		}
-
-		const openRandomNote = () => {
-			let files = this.app.vault.getFiles();
-			let random = Math.floor(Math.random() * files.length);
-			let randomFile = files[random];
-
-			const currentLeaf = this.app.workspace.activeLeaf;
-			currentLeaf.openFile(randomFile);
-		}
 
 		const getPossibleLinks = async () => {
 			let files = this.app.vault.getFiles();
@@ -80,7 +34,6 @@ export default class MyPlugin extends Plugin {
 			const selectedRange = cm.getSelections().join('\n')
 
 			fileData = selectedRange || fileData.replace(/\W+/g," ");
-			let links: any[] = [];
 			let fileTextItems = fileData.split(" ");
 			fileTextItems = [...new Set(fileTextItems)];
 			fileTextItems = fileTextItems.map(text => text.replace(/\s+/g, ""))
@@ -103,27 +56,8 @@ export default class MyPlugin extends Plugin {
 			new KeywordsModal(this.app, keywords).open();
 		}
 
-		this.app.workspace.on('active-leaf-change', updateFilePath);
-		this.app.workspace.on('file-open', updateFilePath);
-		this.app.workspace.on('click', updateFilePath);
-		this.app.workspace.on('active-leaf-change', updateReadingTime);
-		this.app.workspace.on('file-open', updateReadingTime);
-		this.app.workspace.on('click', updateReadingTime);
-
 		this.addCommand({
-			id: 'obp-open-random-note',
-			name: 'Open Random Note',
-			callback: openRandomNote,
-			hotkeys: [
-				{
-					modifiers: ["Mod"],
-					key: "8"
-				}
-			]
-		});
-
-		this.addCommand({
-			id: 'obp-show-possible-links',
+			id: 'show-possible-links',
 			name: 'Show Possible Links',
 			callback: getPossibleLinks,
 			hotkeys: [
@@ -132,13 +66,9 @@ export default class MyPlugin extends Plugin {
 					key: "6"
 				}
 			]
-		})
+		});
 
-		if (this.settings.showRandom) {
-			this.addRibbonIcon('dice', 'Open Random Note', openRandomNote);
-		}
-
-		this.addSettingTab(new ObsidianPlusSettingTab(this.app, this));
+		this.addSettingTab(new RelatedNotesSettingTab(this.app, this));
 	}
 
 	onunload() {
@@ -243,7 +173,7 @@ class PossibleLinksModal extends Modal {
 	}
 }
 
-class ObsidianPlusSettingTab extends PluginSettingTab {
+class RelatedNotesSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
 
 	constructor(app: App, plugin: MyPlugin) {
@@ -254,19 +184,7 @@ class ObsidianPlusSettingTab extends PluginSettingTab {
 	display(): void {
 		let {containerEl} = this;
 		containerEl.empty();
-		containerEl.createEl('h2', {text: 'Settings for Obsidian+'});
-
-		// File Path
-		containerEl.createEl('h3', {text: 'File Path'});
-		new Setting(containerEl)
-			.setName('Display File Path')
-			.setDesc('Show the active file path in the status bar.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.showFilePath)
-				.onChange(async (value) => {
-					this.plugin.settings.showFilePath = value;
-					await this.plugin.saveSettings();
-				}));
-
+		containerEl.createEl('h2', {text: 'Settings for Related Notes Finder'});
 
 		// Possible Links
 		containerEl.createEl('h3', {text: 'Possible Links'});
@@ -306,54 +224,5 @@ class ObsidianPlusSettingTab extends PluginSettingTab {
 				text.inputEl.rows = 10;
 				text.inputEl.cols = 25;
 			});
-
-		// new Setting(containerEl)
-		// 	.setName('Include paths')
-		// 	.setDesc('Paths in vault to search for possible links. (leave blank to search entire vault')
-		// 	.addTextArea(text => {
-		// 		text
-		// 			.setPlaceholder('root/to/folder')
-		// 			.setValue(this.plugin.settings.dailies)
-		// 			.onChange(async (value) => {
-		// 				this.plugin.settings.dailies = value;
-		// 				await this.plugin.saveSettings();
-		// 			});
-		// 		text.inputEl.rows = 10;
-		// 		text.inputEl.cols = 25;
-		// 	});
-
-		// Random Note
-		containerEl.createEl('h3', {text: 'Random Note'});
-		new Setting(containerEl)
-			.setName('Display Random Icon in Ribbon. (Requires reload)')
-			.setDesc('Show the random file option in the ribbon.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.showRandom)
-				.onChange(async (value) => {
-					this.plugin.settings.showRandom = value;
-					await this.plugin.saveSettings();
-				}));
-
-		// Reading Time
-		containerEl.createEl('h3', {text: 'Reading Time'});
-		new Setting(containerEl)
-			.setName('Display Reading Time')
-			.setDesc('Show the estimated reading time in the status bar.')
-			.addToggle(toggle => toggle.setValue(this.plugin.settings.showReadingTime)
-				.onChange(async (value) => {
-					this.plugin.settings.showReadingTime = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Words Per Minute')
-			.setDesc('Words per minute calculated and added to status bar.')
-			.addText(text => text
-				.setPlaceholder('200')
-				.setValue(this.plugin.settings.wpm.toString())
-				.onChange(async (value) => {
-					this.plugin.settings.wpm = parseInt(value);
-					await this.plugin.saveSettings();
-				}));
-
 	}
 }
