@@ -1,21 +1,19 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
 interface MyPluginSettings {
 	filterWords: string;
 	dailies: string;
 	minLetters: number;
-	wpm: number;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	filterWords: 'the,and,but,not,then,they,will,not,your,from,them,was,with,what,who,why,where,this,over,than',
 	dailies: '',
 	minLetters: 3,
-	wpm: 200,
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class RelatedNotesPlugin extends Plugin {
+	settings: RelatedNotesPluginSettings;
 
 	async onload() {
 		console.log('loading Related Notes plugin');
@@ -24,15 +22,12 @@ export default class MyPlugin extends Plugin {
 
 		const getPossibleLinks = async () => {
 			let files = this.app.vault.getFiles();
-			let activeFile = this.app.workspace.getActiveFile();
-			let fileData = await this.app.vault.read(activeFile);
+			let activeFile = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (!activeFile) return null;
+			
+			let fileData = await this.app.vault.read(activeFile.file);
 			fileData = fileData ? fileData : "";
-
-			const currentView = this.app.workspace.activeLeaf.view;
-			const cm = (currentView as any).sourceMode.cmEditor
-			const cursor = cm.getCursor()
-			const selectedRange = cm.getSelections().join('\n')
-
+			const selectedRange = activeFile.editor.getSelection();
 			fileData = selectedRange || fileData.replace(/\W+/g," ");
 			let fileTextItems = fileData.split(" ");
 			fileTextItems = [...new Set(fileTextItems)];
@@ -91,25 +86,30 @@ class KeywordsModal extends Modal {
 
 	onOpen() {
 		let {contentEl} = this;
-		let section = document.createElement("div");
-		section.addClass('possible-links-container');
+		let modalContainer = contentEl.createDiv();
+		let section = contentEl.createDiv({cls: 'possible-links-container'});
 		let keys = Object.keys(this.keywords);
-		let title = document.createElement("h3");
-		title.setText(`${keys.length} keywords found`);
-		section.append(title);
+		let title = contentEl.createEl("h3", {text: `${keys.length} keywords found`});
 
 		keys.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 		keys.map(keyword => {
-			let title = document.createElement("p");
-			title.addClass('possible-link-item');
-			title.setText(`${keyword} - ${this.keywords[keyword].length} notes found`);
-			title.addEventListener('click', () => {
+			let noteContainer = contentEl.createEl("p");
+			let noteLink = contentEl.createEl("a", {
+				cls: 'possible-link-item',
+				text: `${keyword} - ${this.keywords[keyword].length} notes found`
+			});
+			noteLink.addEventListener('click', () => {
 				new PossibleLinksModal(this.app, this.keywords[keyword], this.keywords).open();
 				this.close();
 			});
-			section.append(title);
+
+			noteContainer.append(noteLink);
+			section.append(noteContainer);
 		});
-		contentEl.append(section);
+		
+		modalContainer.append(title);
+		modalContainer.append(section);
+		contentEl.append(modalContainer);
 	}
 
 	onClose() {
@@ -125,24 +125,20 @@ class PossibleLinksModal extends Modal {
 
 	onOpen() {
 		let {contentEl} = this;
-		let section = document.createElement("div");
-		section.addClass('possible-links-container');
-		let back = document.createElement("h4");
-		back.setText(`< Back to Keywords`);
-		back.addClass('possible-link-item');
-		back.addEventListener('click', () => {
+		let modalContainer = contentEl.createDiv({cls:'possible-links-container'});
+		let backBtn = contentEl.createEl("a", {text:'< Back to Keywords', cls:'possible-link-item'});
+		backBtn.addEventListener('click', () => {
 			new KeywordsModal(this.app, this.keywords).open();
 			this.close();
 		});
-		contentEl.append(back);
-		let title = document.createElement("h3");
-		title.setText(`${this.links.length} notes found`);
-		section.append(title);
+
+		let title = (this.links.length == 0)
+			? contentEl.createEl('h3', {text:'0 Notes Found'})
+			: contentEl.createEl('h3', {text: `${this.links.length} notes found`});
+
 		this.links.map((link: any) => {
-			let aref = document.createElement("a");
-			aref.setText(link.path);
-			aref.addClass('possible-link-item');
-			aref.addEventListener('click', async (e) => {
+			let noteLink = contentEl.createEl("a", {text:link.path, cls:'possible-link-item'});
+			noteLink.addEventListener('click', async (e) => {
 				const currentLeaf = this.app.workspace.activeLeaf;
 				if (e.metaKey) {
 					let newLeaf = this.app.workspace.splitActiveLeaf('vertical');
@@ -156,15 +152,15 @@ class PossibleLinksModal extends Modal {
 				new Notice(`Added link [[${link.basename}]] to end of '${activeFile.basename}'`)
 				this.close();
 			});
-			let p = document.createElement("p");
-			p.append(aref);
-			section.append(p);
-		});
-		contentEl.append(section);
 
-		if (this.links.length == 0) {
-			contentEl.setText("0 Notes Found");
-		}
+			let noteContainer = contentEl.createEl("p");
+			noteContainer.append(noteLink);
+			modalContainer.append(noteContainer);
+		});
+
+		contentEl.append(backBtn);
+		contentEl.append(title);
+		contentEl.append(modalContainer);
 	}
 
 	onClose() {
@@ -174,9 +170,9 @@ class PossibleLinksModal extends Modal {
 }
 
 class RelatedNotesSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: RelatedNotesPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: RelatedNotesPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
