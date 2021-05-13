@@ -1,12 +1,14 @@
 import { App, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
-interface MyPluginSettings {
+interface RelatedNotesPluginSettings {
+	appendLink: boolean;
 	filterWords: string;
 	dailies: string;
 	minLetters: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: RelatedNotesPluginSettings = {
+	appendLink: true,
 	filterWords: 'the,and,but,not,then,they,will,not,your,from,them,was,with,what,who,why,where,this,over,than',
 	dailies: '',
 	minLetters: 3,
@@ -20,7 +22,7 @@ export default class RelatedNotesPlugin extends Plugin {
 
 		await this.loadSettings();
 
-		const getPossibleLinks = async () => {
+		const getPossibleLinks = async (): Promise<any> => {
 			let files = this.app.vault.getFiles();
 			let activeFile = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!activeFile) return null;
@@ -48,7 +50,7 @@ export default class RelatedNotesPlugin extends Plugin {
 					}
 				});
 			});
-			new KeywordsModal(this.app, keywords).open();
+			new KeywordsModal(this.app, keywords, this.settings).open();
 		}
 
 		this.addCommand({
@@ -61,6 +63,17 @@ export default class RelatedNotesPlugin extends Plugin {
 					key: "6"
 				}
 			]
+		});
+
+		this.addCommand({
+			id: 'toggle-append-link',
+			name: 'Toggle Append Link Setting',
+			callback: () => {
+				this.settings.appendLink = !this.settings.appendLink;
+				this.saveSettings();
+				let status = this.settings.appendLink ? 'On' : 'Off';
+				new Notice(`Append Link setting is now ${status}`)
+			}
 		});
 
 		this.addSettingTab(new RelatedNotesSettingTab(this.app, this));
@@ -80,7 +93,7 @@ export default class RelatedNotesPlugin extends Plugin {
 }
 
 class KeywordsModal extends Modal {
-	constructor(app: App, public keywords: any) {
+	constructor(app: App, public keywords: any, public settings: any) {
 		super(app);
 	}
 
@@ -99,7 +112,7 @@ class KeywordsModal extends Modal {
 				text: `${keyword} - ${this.keywords[keyword].length} notes found`
 			});
 			noteLink.addEventListener('click', () => {
-				new PossibleLinksModal(this.app, this.keywords[keyword], this.keywords).open();
+				new PossibleLinksModal(this.app, this.keywords[keyword], this.keywords, this.settings).open();
 				this.close();
 			});
 
@@ -119,7 +132,7 @@ class KeywordsModal extends Modal {
 }
 
 class PossibleLinksModal extends Modal {
-	constructor(app: App, public links: any, public keywords: any) {
+	constructor(app: App, public links: any, public keywords: any, public settings: any) {
 		super(app);
 	}
 
@@ -128,7 +141,7 @@ class PossibleLinksModal extends Modal {
 		let modalContainer = contentEl.createDiv({cls:'possible-links-container'});
 		let backBtn = contentEl.createEl("a", {text:'< Back to Keywords', cls:'possible-link-item'});
 		backBtn.addEventListener('click', () => {
-			new KeywordsModal(this.app, this.keywords).open();
+			new KeywordsModal(this.app, this.keywords, this.settings).open();
 			this.close();
 		});
 
@@ -139,17 +152,19 @@ class PossibleLinksModal extends Modal {
 		this.links.map((link: any) => {
 			let noteLink = contentEl.createEl("a", {text:link.path, cls:'possible-link-item'});
 			noteLink.addEventListener('click', async (e) => {
-				const currentLeaf = this.app.workspace.activeLeaf;
+				let activeFile = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (activeFile && this.settings.appendLink) {
+					let fileData = await this.app.vault.read(activeFile.file);
+					this.app.vault.modify(activeFile.file, fileData + `\n[[${link.basename}]]`);
+					new Notice(`Added link [[${link.basename}]] to end of '${activeFile.file.basename}'`)
+				}
 				if (e.metaKey) {
 					let newLeaf = this.app.workspace.splitActiveLeaf('vertical');
 					newLeaf.openFile(link);
 				} else {
+					const currentLeaf = this.app.workspace.activeLeaf;
 					currentLeaf.openFile(link);
 				}
-				let activeFile = this.app.workspace.getActiveFile();
-				let fileData = await this.app.vault.read(activeFile);
-				this.app.vault.modify(activeFile, fileData + `\n[[${link.basename}]]`);
-				new Notice(`Added link [[${link.basename}]] to end of '${activeFile.basename}'`)
 				this.close();
 			});
 
@@ -184,6 +199,19 @@ class RelatedNotesSettingTab extends PluginSettingTab {
 
 		// Possible Links
 		containerEl.createEl('h3', {text: 'Possible Links'});
+		
+		new Setting(containerEl)
+			.setName('Append link')
+			.setDesc('Adds the selected link to the currently open note')
+			.addToggle(value => {
+				value
+					.setValue(this.plugin.settings.appendLink)
+					.onChange(async (value) => {
+						this.plugin.settings.appendLink = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
 		new Setting(containerEl)
 			.setName('Minimum Letters')
 			.setDesc('Minimum letter count for a word when searching for related notes.')
