@@ -24,12 +24,12 @@ export default class RelatedNotesPlugin extends Plugin {
 
 		const getPossibleLinks = async (): Promise<any> => {
 			let files = this.app.vault.getFiles();
-			let activeFile = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (!activeFile) return null;
+			let activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (!activeView) return null;
 			
-			let fileData = await this.app.vault.read(activeFile.file);
+			let fileData = await this.app.vault.cachedRead(activeView.file);
 			fileData = fileData ? fileData : "";
-			const selectedRange = activeFile.editor.getSelection();
+			const selectedRange = activeView.editor.getSelection();
 			fileData = selectedRange || fileData.replace(/\W+/g," ");
 			let fileTextItems = fileData.split(" ");
 			fileTextItems = [...new Set(fileTextItems)];
@@ -100,14 +100,14 @@ class KeywordsModal extends Modal {
 	onOpen() {
 		let {contentEl} = this;
 		let modalContainer = contentEl.createDiv();
-		let section = contentEl.createDiv({cls: 'possible-links-container'});
 		let keys = Object.keys(this.keywords);
-		let title = contentEl.createEl("h3", {text: `${keys.length} keywords found`});
+		let title = modalContainer.createEl("h3", {text: `${keys.length} keywords found`});
+		let section = modalContainer.createDiv({cls: 'possible-links-container'});
 
 		keys.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 		keys.map(keyword => {
-			let noteContainer = contentEl.createEl("p");
-			let noteLink = contentEl.createEl("a", {
+			let noteContainer = section.createEl("p");
+			let noteLink = noteContainer.createEl("a", {
 				cls: 'possible-link-item',
 				text: `${keyword} - ${this.keywords[keyword].length} notes found`
 			});
@@ -115,14 +115,7 @@ class KeywordsModal extends Modal {
 				new PossibleLinksModal(this.app, this.keywords[keyword], this.keywords, this.settings).open();
 				this.close();
 			});
-
-			noteContainer.append(noteLink);
-			section.append(noteContainer);
 		});
-		
-		modalContainer.append(title);
-		modalContainer.append(section);
-		contentEl.append(modalContainer);
 	}
 
 	onClose() {
@@ -138,19 +131,19 @@ class PossibleLinksModal extends Modal {
 
 	onOpen() {
 		let {contentEl} = this;
-		let modalContainer = contentEl.createDiv({cls:'possible-links-container'});
 		let backBtn = contentEl.createEl("a", {text:'< Back to Keywords', cls:'possible-link-item'});
+		let title = (this.links.length == 0)
+			? contentEl.createEl('h3', {text:'0 Notes Found'})
+			: contentEl.createEl('h3', {text: `${this.links.length} notes found`});
+		let modalContainer = contentEl.createDiv({cls:'possible-links-container'});
 		backBtn.addEventListener('click', () => {
 			new KeywordsModal(this.app, this.keywords, this.settings).open();
 			this.close();
 		});
 
-		let title = (this.links.length == 0)
-			? contentEl.createEl('h3', {text:'0 Notes Found'})
-			: contentEl.createEl('h3', {text: `${this.links.length} notes found`});
 
 		this.links.map((link: any) => {
-			let noteLink = contentEl.createEl("a", {text:link.path, cls:'possible-link-item'});
+			let noteLink = modalContainer.createEl("p").createEl("a", {text:link.path, cls:'possible-link-item'});
 			noteLink.addEventListener('click', async (e) => {
 				let activeFile = this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (activeFile && this.settings.appendLink) {
@@ -167,15 +160,7 @@ class PossibleLinksModal extends Modal {
 				}
 				this.close();
 			});
-
-			let noteContainer = contentEl.createEl("p");
-			noteContainer.append(noteLink);
-			modalContainer.append(noteContainer);
 		});
-
-		contentEl.append(backBtn);
-		contentEl.append(title);
-		contentEl.append(modalContainer);
 	}
 
 	onClose() {
