@@ -1,7 +1,8 @@
 # Related Notes Finder
 ## An Obsidian Plugin
 ### How to Use
-![](./obsidian-related-notes.gif)
+
+<img src="https://github.com/lifegems/obsidian-related-notes-finder/blob/master/obsidian-related-notes.gif?raw=true">
 
 ### Features
 **Command:** Show Possible Links
@@ -34,3 +35,7 @@ Toggle the setting to append the related note to the active note.
 * **Filtered Words**
   * Ignore words as specified in settings. (Default: 'the,and,but,not,then,they,will,not,your,from,them,was,with,what,who,why,where,this,over,than')
   * When using the *Show Possible Links* command, ignore any words listed. Simple separate them by comma. Case is ignored.
+
+
+### Support
+<a href="https://www.buymeacoffee.com/joshuamichalik" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 150px !important;" ></a>
