@@ -34,7 +34,7 @@ export default class RelatedNotesPlugin extends Plugin {
 			let fileTextItems = fileData.split(" ");
 			fileTextItems = [...new Set(fileTextItems)];
 			fileTextItems = fileTextItems.map(text => text.replace(/\s+/g, ""))
-							 					  .filter(t => t.length > this.settings.minLetters && this.settings.filterWords.split(",").indexOf(t.toLowerCase()) == -1);
+							 					  .filter(t => t.length > this.settings.minLetters && this.settings.filterWords.toLowerCase().split(",").indexOf(t.toLowerCase()) == -1);
 			let keywords: any = {};
 			fileTextItems.forEach(text => {
 				text = text.toLowerCase();
@@ -186,7 +186,7 @@ class RelatedNotesSettingTab extends PluginSettingTab {
 		containerEl.createEl('h3', {text: 'Possible Links'});
 		
 		new Setting(containerEl)
-			.setName('Append link')
+			.setName('Append Link')
 			.setDesc('Adds the selected link to the currently open note')
 			.addToggle(value => {
 				value
