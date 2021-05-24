@@ -4,6 +4,6 @@
 }
 
 .possible-link-item {
-    color: white;
+    color: (--background-secondary);
     cursor: pointer;
 }
