@@ -30,7 +30,7 @@ export default class RelatedNotesPlugin extends Plugin {
 			let fileData = await this.app.vault.cachedRead(activeView.file);
 			fileData = fileData ? fileData : "";
 			const selectedRange = activeView.editor.getSelection();
-			fileData = selectedRange || fileData.replace(/\W+/g," ");
+			fileData = selectedRange || fileData.replace(/[^\p{L}+|\p{M}]+/gmu," ");
 			let fileTextItems = fileData.split(" ");
 			fileTextItems = [...new Set(fileTextItems)];
 			fileTextItems = fileTextItems.map(text => text.replace(/\s+/g, ""))
